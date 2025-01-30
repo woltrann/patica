@@ -23,19 +23,13 @@ public class dusmanHareketi : MonoBehaviour
         }
 
     }
-    //private void OnMouseDown()
-    //{
-    //    Destroy(gameObject); 
-    //    Instantiate(kanama2, transform.position, kanama2.transform.rotation);
-    //    nesne.TilkiOldurme();
-    //}
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Mermi"))
         {
             Destroy(gameObject);
             Instantiate(kanama2, transform.position, kanama2.transform.rotation);
-            nesne.TilkiOldurme();
+            //nesne.TilkiOldurme();
         }
         else if (other.CompareTag("Et"))
         {

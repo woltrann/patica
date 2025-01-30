@@ -1,7 +1,10 @@
 using System.Collections;
+using Unity.Android.Gradle.Manifest;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
+
 //using UnityEngine.Windows;
 using static UnityEditor.Searcher.SearcherWindow.Alignment;
 
@@ -14,24 +17,27 @@ public class karakterSerbestSahne : MonoBehaviour
     public GameObject et;
     public GameObject dusman;
     public GameObject Panel;
-    private GameObject OdakNoktasi;
-    public int hiz = 50;
-    public int wiz = 50;
-    public float yerCekimi = 2;
-    public float yukseklik = 40;
-    public bool yerdeMi = true;
     public bool GameOver = false;
     public bool PowerStart = false;
 
     public Transform karakter; // Karakterin transformu
     public Transform inekTutmaNoktasi; // İneğin taşınacağı nokta (karakterin eline yakın bir yer)
-    private bool inekAlindi = false; // İnek alındı mı?
     private GameObject seciliInek = null; // Şu anda taşınan inek
+    private bool inekAlindi = false; // İnek alındı mı?
+    
+    //Hareket
+    public Camera kamera;
+    private Vector3 playerVelocity;
+    public bool yerdeMi = true;
+    private float mRotationY = 0f;
+    public float mouseSensitivity;
+    public float yerCekimi = -9.81f;
+    public float yukseklik = 10;
+    public int hiz = 50;
 
-    public float mouseSensitivity = 100f; // Mouse hassasiyeti
-    private float xRotation = 0f; // X ekseni rotasyonunu takip etmek için
+    public float horsePower = 0f;
 
-
+    
     void Start()
     {
         Panel.SetActive(false);
@@ -39,42 +45,23 @@ public class karakterSerbestSahne : MonoBehaviour
         karakterAnim = GetComponent<Animator>();
         Physics.gravity *= yerCekimi;
         InvokeRepeating("Spawn", 2, 1);
-        OdakNoktasi=GameObject.Find("KameraObjesi");
-
         Cursor.lockState = CursorLockMode.Locked; // Mouse imlecini ekranın ortasında kilitler
-
     }
-
     void FixedUpdate()
     {
-        float yatayHareket = Input.GetAxis("SSHorizontal");
-        transform.Rotate(Vector3.up, Time.deltaTime*wiz*yatayHareket);
-        
-        if (GameOver == false)
-        {
-            Vector3 hareket=new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"))*Time.deltaTime*hiz;
-            karakterRb.linearVelocity=transform.TransformDirection(hareket)*hiz;
-        }
-
-        
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
-
-        // X ekseninde kamerayı yukarı aşağı döndürme
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Kameranın yukarı ve aşağı sınırlarını ayarla
-
-        // Karakteri Y ekseninde döndürme (sağa sola dönüş)
-        transform.Rotate(Vector3.up * mouseX);
-
-        // Kamerayı yukarı aşağı döndürme
-        OdakNoktasi.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+       Hareket();
     }
     void Update()
     {
+        Kamera();    
         if (Input.GetKeyDown(KeyCode.K)) { mermiAt(); }
         if (Input.GetKeyDown(KeyCode.L)) { etAt(); }
-        if (Input.GetKeyDown(KeyCode.Space) && yerdeMi && !GameOver) {karakterRb.AddForce(Vector3.up * yukseklik, ForceMode.Impulse); yerdeMi = false; karakterAnim.SetTrigger("Jump_t"); }
+        if (Input.GetKeyDown(KeyCode.Space) && yerdeMi && !GameOver)
+        { 
+            karakterRb.AddForce(Vector3.up * yukseklik* Time.deltaTime, ForceMode.Impulse); 
+            yerdeMi = false;
+            karakterAnim.SetTrigger("Jump_t");
+        }
         if (Input.GetKeyDown(KeyCode.F))
         {
             if (inekAlindi)
@@ -85,13 +72,29 @@ public class karakterSerbestSahne : MonoBehaviour
             {
                 Al(); // Eğer ineği almadıysak al
             }
-        }
-
-        
+        }    
     }
-
-
-
+    void Kamera()
+    {
+        float mouse_x = Input.GetAxis("Mouse X");
+        float mouse_y = Input.GetAxis("Mouse Y");
+        transform.Rotate(0f, mouse_x * mouseSensitivity, 0f);
+        mRotationY += mouse_y * mouseSensitivity;
+        mRotationY = Mathf.Clamp(mRotationY, -15f, 10f);
+        kamera.transform.localEulerAngles = new Vector3(-mRotationY, kamera.transform.localEulerAngles.y, kamera.transform.localEulerAngles.z);
+    }
+    void Hareket()
+    {
+        if (GameOver == false)
+        {
+            //Vector3 hareket = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical")) * Time.deltaTime * hiz;
+            //karakterRb.linearVelocity = transform.TransformDirection(hareket) * hiz;
+            float horizontalInput = Input.GetAxis("Horizontal");
+            float verticalInput = Input.GetAxis("Vertical");
+            karakterRb.AddRelativeForce(Vector3.forward * verticalInput * horsePower);
+            transform.Rotate(Vector3.up * horizontalInput * hiz * Time.deltaTime);
+        }
+    }
     void Al()
     {
         Collider[] yakinNesneler = Physics.OverlapSphere(karakter.position, 2f); // Karakterin etrafındaki nesneleri kontrol et (yarıçap: 2 birim)
@@ -108,7 +111,6 @@ public class karakterSerbestSahne : MonoBehaviour
             }
         }
     }
-
     void Birak()
     {
         if (seciliInek != null)
@@ -119,9 +121,6 @@ public class karakterSerbestSahne : MonoBehaviour
             inekAlindi = false;
         }
     }
-
-
-
     public void mermiAt()
     {
         Vector3 spawnPosition = transform.position + transform.forward * 1.5f;
@@ -159,7 +158,6 @@ public class karakterSerbestSahne : MonoBehaviour
             Debug.Log("Collided with " + collision.gameObject.name);
         }
     }
-
     public void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Power"))
